@@ -19,6 +19,14 @@ export OM_GPS_ANTENNA_OFFSET=0.3
 # Angle which gets added to the compass heading, if your imu is in a rotated coordinate frame
 export OM_IMU_OFFSET=180.0
 
+
+export OM_GPS_ORIENTATION_COEF_TO_IMU=0.1
+export OM_GPS_ORIENTATION_COEF=0.5
+export OM_GPS_ORIENTATION_MIN_SPEED=0
+export OM_GPS_ORIENTATION_MAX_SPEED=0.3
+export OM_GPS_ORIENTATION_MIN_DIFF=5
+export OM_GPS_ORIENTATION_MAX_DIFF=25
+
 # IMU Calibration and filter settings
 export OM_MAG_BIAS_X=-0.027
 export OM_MAG_BIAS_Y=0.039

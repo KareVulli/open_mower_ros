@@ -6,6 +6,12 @@
         <param name="use_relative_position" value="$(env OM_USE_RELATIVE_POSITION)"/>
         <param unless="$(env OM_USE_RELATIVE_POSITION)" name="datum_lat" value="$(env OM_DATUM_LAT)"/>
         <param unless="$(env OM_USE_RELATIVE_POSITION)" name="datum_long" value="$(env OM_DATUM_LONG)"/>
+        <param name="gps_orientation_coef_to_imu" value="$(env OM_GPS_ORIENTATION_COEF_TO_IMU)"/>
+        <param name="gps_orientation_coef" value="$(env OM_GPS_ORIENTATION_COEF)"/>
+        <param name="min_diff" value="$(env OM_GPS_ORIENTATION_MIN_DIFF)"/>
+        <param name="max_diff" value="$(env OM_GPS_ORIENTATION_MAX_DIFF)"/>
+        <param name="min_speed" value="$(env OM_GPS_ORIENTATION_MIN_SPEED)"/>
+        <param name="max_speed" value="$(env OM_GPS_ORIENTATION_MAX_SPEED)"/>
     </node>
 
     <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_node" required="true">

@@ -71,6 +71,8 @@ geometry_msgs::Quaternion orientation_result;
 
 tf2_ros::Buffer tfBuffer;
 
+tf2::Vector3 gps_orientation;
+
 
 double getGPSY(ublox_msgs::NavRELPOSNED9 &msg) {
     return ((double) msg.relPosN * 0.01) + ((double) msg.relPosHPN * 0.0001);
@@ -196,10 +198,23 @@ void handleGPSUpdate(tf2::Vector3 gps_pos, double gps_accuracy_m) {
         double base_link_y = gps_pos.y() - config.gps_antenna_offset * sin(r);
 
 
+        tf2::Vector3 direction = last_gps_pos - gps_pos;
+        if (!direction.isZero()) {
+            // direction.normalize();
+            // Update gps orientation
+            double gps_orientation_coef = config.gps_orientation_coef;
+            double new_x = gps_orientation.x() * (1.0-gps_orientation_coef) + (direction.x() * gps_orientation_coef);
+            double new_y = gps_orientation.y() * (1.0-gps_orientation_coef) + (direction.y() * gps_orientation_coef);
+            tf2::Vector3 new_orientation(new_x, new_y, 0.0);
+            new_orientation.normalize();
+            gps_orientation = new_orientation;
+        }
+        
         // store the gps as last
         last_gps_pos = gps_pos;
         last_gps_acc_m = gps_accuracy_m;
         last_gps_odometry_time = ros::Time::now();
+
 
         gps_outlier_count = 0;
         valid_gps_samples++;
@@ -224,6 +239,7 @@ void handleGPSUpdate(tf2::Vector3 gps_pos, double gps_accuracy_m) {
             last_gps_pos = gps_pos;
             last_gps_acc_m = gps_accuracy_m;
             last_gps_odometry_time = ros::Time::now();
+            gps_orientation = tf2::Vector3(0.0, 0.0, 0.0);
 
             gpsOdometryValid = false;
             valid_gps_samples = 0;
@@ -308,35 +324,65 @@ bool statusReceivedOrientation(const mower_msgs::Status::ConstPtr &msg) {
     tf2::Matrix3x3 m(q);
     double unused1, unused2, yaw;
 
-    m.getRPY(unused1, unused2, yaw);
+    m.getRPY(unused1, unused2, yaw); // Radians
 
     yaw += config.imu_offset * (M_PI / 180.0);
-    yaw = fmod(yaw + (M_PI_2), 2.0 * M_PI);
-    while (yaw < 0) {
-        yaw += M_PI * 2.0;
+    yaw = fmod(yaw + (M_PI_2), 2.0 * M_PI); // Makes sure it is positive and does not go over 2*PI
+    while (yaw < 0) { // If for some reason it negative
+        yaw += M_PI * 2.0; // Add full circle
     }
+    double imu_angle = yaw * 180 / M_PI; // result is degrees 0-360
 
 
-    tf2::Quaternion q_mag(0.0, 0.0, yaw);
-
-
-    r = yaw;
+    double gps_angle_deg = atan2(gps_orientation.y(), gps_orientation.x()) * 180 / M_PI + config.imu_offset;
+    double gps_angle_rad = gps_angle_deg * (M_PI / 180);
 
     double d_ticks = (d_wheel_l + d_wheel_r) / 2.0;
-
-
-
-    orientation_result = tf2::toMsg(q_mag);
-    //orientation_result = q_mag;
-
-
-    x += d_ticks * cos(r);
-    y += d_ticks * sin(r);
 
     vy = 0;
     vx = d_ticks / dt;
     vr = lastImu.angular_velocity.z;
 
+    if (gpsOdometryValid) {
+        
+        double diff = gps_angle_deg - imu_angle;
+        double normal_diff = 180.0 - fabs(fmod(fabs(diff), 2*180.0) - 180.0);
+        
+        double min_diff = config.min_diff; // 100% on gps
+        double max_diff = config.max_diff; // 100% on imu
+
+        double min_speed_diff = config.min_speed; // 100% on imu
+        double max_speed_diff = config.max_speed; // 100% on gps
+
+        double speed_coef = 0.0, angle_coef = 0.0;
+        if (vx <= min_speed_diff)
+            speed_coef = 0.0;
+        else if (vx >= max_speed_diff)
+            speed_coef = 1.0;
+        else
+            speed_coef = (vx - min_speed_diff) / (max_speed_diff - min_speed_diff);
+
+        if (normal_diff <= min_diff)
+            angle_coef = 1.0;
+        else if (normal_diff >= max_diff)
+            angle_coef = 0.0;
+        else
+            angle_coef = 1 - (normal_diff - min_diff) / (max_diff - min_diff);
+        
+        double coef = std::min(speed_coef, angle_coef);
+        
+        ROS_INFO_STREAM_THROTTLE(1, "Got gps angle: " << gps_angle_deg << " and imu angle: " << imu_angle << " difference: " << normal_diff << " speed: " << vx << " coef: " << coef);
+        
+        yaw = yaw * (1.0-coef) + (gps_angle_rad * coef);
+    }
+    tf2::Quaternion q_mag(0.0, 0.0, yaw);
+
+    r = yaw;
+
+    x += d_ticks * cos(r);
+    y += d_ticks * sin(r);
+
+    orientation_result = tf2::toMsg(q_mag);
 
     return true;
 }
