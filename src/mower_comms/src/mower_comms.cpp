@@ -16,7 +16,7 @@
 //
 //
 #include "ros/ros.h"
-
+#include <Eigen/Dense>
 #include "boost/crc.hpp"
 #include "std_msgs/Empty.h"
 #include <mower_msgs/Status.h>
@@ -35,6 +35,12 @@
 
 #include <xesc_driver/xesc_driver.h>
 #include <xesc_msgs/XescStateStamped.h>
+
+Eigen::Matrix4d C = (Eigen::Matrix4d() <<
+     0.0010180797, -0.0000053146,  0.0000160017, -0.0000304299,
+    -0.0000053146,  0.0009655837, -0.0000477505, -0.0001129068,
+     0.0000160017, -0.0000477505,  0.0010772396, -0.0002531735,
+     0.0000000000,  0.0000000000,  0.0000000000,  1.0000000000).finished();
 
 
 ros::Publisher status_pub;
@@ -313,9 +319,18 @@ void handleLowLevelIMU(struct ll_imu *imu) {
     sensor_mag_msg.header.stamp = ros::Time::now();
     sensor_mag_msg.header.seq++;
     sensor_mag_msg.header.frame_id = "base_link";
-    sensor_mag_msg.magnetic_field.x = imu_msg.mx/1000.0;
-    sensor_mag_msg.magnetic_field.y = imu_msg.my/1000.0;
-    sensor_mag_msg.magnetic_field.z = imu_msg.mz/1000.0;
+
+    Eigen::Vector4d uncalibrated(imu_msg.mx/1000.0, imu_msg.my/1000.0, imu_msg.mz/1000.0, 1.0);
+
+    Eigen::Vector4d calibrated = C * uncalibrated;
+
+    sensor_mag_msg.magnetic_field.x = calibrated.x();
+    sensor_mag_msg.magnetic_field.y = calibrated.y();
+    sensor_mag_msg.magnetic_field.z = calibrated.z();
+
+//    sensor_mag_msg.magnetic_field.x = imu_msg.mx/1000.0;
+//    sensor_mag_msg.magnetic_field.y = imu_msg.my/1000.0;
+//    sensor_mag_msg.magnetic_field.z = imu_msg.mz/1000.0;
 
     sensor_imu_msg.header.stamp = ros::Time::now();
     sensor_imu_msg.header.seq++;

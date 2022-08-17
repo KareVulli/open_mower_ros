@@ -12,6 +12,7 @@
         <param name="max_diff" value="$(env OM_GPS_ORIENTATION_MAX_DIFF)"/>
         <param name="min_speed" value="$(env OM_GPS_ORIENTATION_MIN_SPEED)"/>
         <param name="max_speed" value="$(env OM_GPS_ORIENTATION_MAX_SPEED)"/>
+        <param name="gps_filter_factor" value="$(env OM_GPS_FILTER_FACTOR)"/>
     </node>
 
     <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_node" required="true">
@@ -21,7 +22,10 @@
         <param name="mag_bias_z" value="$(env OM_MAG_BIAS_Z)" />
         <param name="orientation_stddev" value="0.0"/>
         <param name="zeta" value="0.0" />
+	<param name="use_magnetic_field_msg" value="true" />
+	<param name="_stateless" value="true" />
         <param name="gain" value="$(env OM_IMU_FILTER_GAIN)" />
+	<param name="_declination" value="0.16755160819" />	
     </node>
     
 </launch>

@@ -49,6 +49,6 @@ mower_xesc:
   acceleration: 5.0
   has_motor_temp: true
   min_motor_temp: 0
-  max_motor_temp: 60
+  max_motor_temp: 70
   min_pcb_temp: 0
   max_pcb_temp: 60
