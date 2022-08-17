@@ -71,7 +71,7 @@ geometry_msgs::Quaternion orientation_result;
 
 tf2_ros::Buffer tfBuffer;
 
-tf2::Vector3 gps_orientation;
+tf2::Vector3 gps_orientation(0.0, 1.0, 0.0);
 
 
 double getGPSY(ublox_msgs::NavRELPOSNED9 &msg) {
