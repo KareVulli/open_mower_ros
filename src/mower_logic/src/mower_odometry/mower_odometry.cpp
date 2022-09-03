@@ -353,7 +353,7 @@ bool statusReceivedOrientation(const mower_msgs::Status::ConstPtr &msg) {
         double normal_diff = fmod(gps_angle_deg - imu_angle + 180.0 + 360.0, 360.0) - 180; // 180.0 - fabs(fmod(, 2*180.0) - 180.0);
         double normal_diff_abs = fabs(normal_diff);
         double yaw_diff = fmod(gps_angle_rad - yaw + M_PI + (2.0*M_PI), 2.0*M_PI) - M_PI;
-        
+
         double min_diff = config.min_diff; // 100% on gps
         double max_diff = config.max_diff; // 100% on imu
 
