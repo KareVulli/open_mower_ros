@@ -63,6 +63,7 @@ double d_wheel_r, d_wheel_l, dt = 1.0;
 // outputs here
 double x = 0, y = 0, vx = 0.0, r = 0.0, vy = 0.0, vr = 0.0;
 geometry_msgs::Quaternion orientation_result;
+double interpolated_vx = 0.0;
 
 
 // (ticks / revolution) / (m / revolution)
@@ -307,6 +308,9 @@ void gpsPositionReceivedRelPosNED(const ublox_msgs::NavRELPOSNED9::ConstPtr &msg
     handleGPSUpdate(gps_pos, gps_accuracy_m);
 }
 
+double lerp (double a, double b, double time) {
+    return (a * (1.0 - time)) + (b * time);
+}
 
 bool statusReceivedOrientation(const mower_msgs::Status::ConstPtr &msg) {
 
@@ -342,11 +346,13 @@ bool statusReceivedOrientation(const mower_msgs::Status::ConstPtr &msg) {
     vy = 0;
     vx = d_ticks / dt;
     vr = lastImu.angular_velocity.z;
+    interpolated_vx = lerp(interpolated_vx, vx, std::min(dt * 2.0, 1.0));
 
     if (gpsOdometryValid) {
         
-        double diff = gps_angle_deg - imu_angle;
-        double normal_diff = 180.0 - fabs(fmod(fabs(diff), 2*180.0) - 180.0);
+        double normal_diff = fmod(gps_angle_deg - imu_angle + 180.0 + 360.0, 360.0) - 180; // 180.0 - fabs(fmod(, 2*180.0) - 180.0);
+        double normal_diff_abs = fabs(normal_diff);
+        double yaw_diff = fmod(gps_angle_rad - yaw + M_PI + (2.0*M_PI), 2.0*M_PI) - M_PI;
         
         double min_diff = config.min_diff; // 100% on gps
         double max_diff = config.max_diff; // 100% on imu
@@ -355,25 +361,25 @@ bool statusReceivedOrientation(const mower_msgs::Status::ConstPtr &msg) {
         double max_speed_diff = config.max_speed; // 100% on gps
 
         double speed_coef = 0.0, angle_coef = 0.0;
-        if (vx <= min_speed_diff)
+        if (interpolated_vx <= min_speed_diff)
             speed_coef = 0.0;
-        else if (vx >= max_speed_diff)
+        else if (interpolated_vx >= max_speed_diff)
             speed_coef = 1.0;
         else
-            speed_coef = (vx - min_speed_diff) / (max_speed_diff - min_speed_diff);
+            speed_coef = (interpolated_vx - min_speed_diff) / (max_speed_diff - min_speed_diff);
 
-        if (normal_diff <= min_diff)
+        if (normal_diff_abs <= min_diff)
             angle_coef = 1.0;
-        else if (normal_diff >= max_diff)
+        else if (normal_diff_abs >= max_diff)
             angle_coef = 0.0;
         else
-            angle_coef = 1 - (normal_diff - min_diff) / (max_diff - min_diff);
-        
+            angle_coef = 1 - (normal_diff_abs - min_diff) / (max_diff - min_diff);
+
         double coef = std::min(speed_coef, angle_coef);
-        
-        ROS_INFO_STREAM_THROTTLE(1, "Got gps angle: " << gps_angle_deg << " and imu angle: " << imu_angle << " difference: " << normal_diff << " speed: " << vx << " coef: " << coef);
-        
-        yaw = yaw * (1.0-coef) + (gps_angle_rad * coef);
+
+        // ROS_INFO_STREAM_THROTTLE(1, "GPS angle: " << gps_angle_deg << " imu angle: " << imu_angle << " diff: " << normal_diff << " speed: " << vx << " interp speed: " << interpolated_vx << " coef: " << coef);
+
+        yaw = yaw + (yaw_diff * coef);
     }
     tf2::Quaternion q_mag(0.0, 0.0, yaw);
 
