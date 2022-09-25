@@ -69,9 +69,6 @@ float speed_l = 0, speed_r = 0, speed_mow = 0;
 serial::Serial serial_port;
 uint8_t out_buf[1000];
 ros::Time last_cmd_vel(0.0);
-ros::Duration cmd_vel_max_delay(0.0);
-ros::Time last_log(0.0);
-
 
 boost::crc_ccitt_type crc;
 
@@ -101,22 +98,12 @@ void publishActuators() {
         speed_r = 0;
         speed_mow = 0;
     }
-    ros::Time now = ros::Time::now();
-    if (now - last_log > ros::Duration(1.0)) {
-        ROS_INFO_STREAM("Largest cmd_vel delay was: " << cmd_vel_max_delay.toSec());
-        cmd_vel_max_delay = ros::Duration(0.0);
-        last_log = now;
-    }
-    auto lastUpdateAgo = ros::Time::now() - last_cmd_vel;
-    if (lastUpdateAgo > cmd_vel_max_delay) {
-        cmd_vel_max_delay = lastUpdateAgo;
-    }
-    if (lastUpdateAgo > ros::Duration(1.0)) {
+    if (ros::Time::now() - last_cmd_vel > ros::Duration(1.0)) {
         speed_l = 0;
         speed_r = 0;
 
     }
-    if (lastUpdateAgo > ros::Duration(25.0)) {
+    if (ros::Time::now() - last_cmd_vel > ros::Duration(25.0)) {
         speed_l = 0;
         speed_r = 0;
         speed_mow = 0;
